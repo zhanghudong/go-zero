@@ -6,16 +6,17 @@ import (
 	"fmt"
 	"go/format"
 	"go/scanner"
+	"io"
 	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
 
-	"github.com/tal-tech/go-zero/core/errorx"
-	"github.com/tal-tech/go-zero/tools/goctl/api/parser"
-	"github.com/tal-tech/go-zero/tools/goctl/api/util"
-	ctlutil "github.com/tal-tech/go-zero/tools/goctl/util"
 	"github.com/urfave/cli"
+	"github.com/zeromicro/go-zero/core/errorx"
+	"github.com/zeromicro/go-zero/tools/goctl/api/parser"
+	"github.com/zeromicro/go-zero/tools/goctl/api/util"
+	"github.com/zeromicro/go-zero/tools/goctl/util/pathx"
 )
 
 const (
@@ -28,14 +29,15 @@ const (
 // GoFormatApi format api file
 func GoFormatApi(c *cli.Context) error {
 	useStdin := c.Bool("stdin")
+	skipCheckDeclare := c.Bool("declare")
+	dir := c.String("dir")
 
 	var be errorx.BatchError
 	if useStdin {
-		if err := apiFormatByStdin(); err != nil {
+		if err := apiFormatReader(os.Stdin, dir, skipCheckDeclare); err != nil {
 			be.Add(err)
 		}
 	} else {
-		dir := c.String("dir")
 		if len(dir) == 0 {
 			return errors.New("missing -dir")
 		}
@@ -47,7 +49,7 @@ func GoFormatApi(c *cli.Context) error {
 
 		err = filepath.Walk(dir, func(path string, fi os.FileInfo, errBack error) (err error) {
 			if strings.HasSuffix(path, ".api") {
-				if err := ApiFormatByPath(path); err != nil {
+				if err := ApiFormatByPath(path, skipCheckDeclare); err != nil {
 					be.Add(util.WrapErr(err, fi.Name()))
 				}
 			}
@@ -64,13 +66,14 @@ func GoFormatApi(c *cli.Context) error {
 	return be.Err()
 }
 
-func apiFormatByStdin() error {
-	data, err := ioutil.ReadAll(os.Stdin)
+// apiFormatReader
+// filename is needed when there are `import` literals.
+func apiFormatReader(reader io.Reader, filename string, skipCheckDeclare bool) error {
+	data, err := ioutil.ReadAll(reader)
 	if err != nil {
 		return err
 	}
-
-	result, err := apiFormat(string(data))
+	result, err := apiFormat(string(data), skipCheckDeclare, filename)
 	if err != nil {
 		return err
 	}
@@ -80,7 +83,7 @@ func apiFormatByStdin() error {
 }
 
 // ApiFormatByPath format api from file path
-func ApiFormatByPath(apiFilePath string) error {
+func ApiFormatByPath(apiFilePath string, skipCheckDeclare bool) error {
 	data, err := ioutil.ReadFile(apiFilePath)
 	if err != nil {
 		return err
@@ -91,12 +94,12 @@ func ApiFormatByPath(apiFilePath string) error {
 		return err
 	}
 
-	result, err := apiFormat(string(data), abs)
+	result, err := apiFormat(string(data), skipCheckDeclare, abs)
 	if err != nil {
 		return err
 	}
 
-	_, err = parser.ParseContent(result, abs)
+	_, err = parser.ParseContentWithParserSkipCheckTypeDeclaration(result, abs)
 	if err != nil {
 		return err
 	}
@@ -104,8 +107,13 @@ func ApiFormatByPath(apiFilePath string) error {
 	return ioutil.WriteFile(apiFilePath, []byte(result), os.ModePerm)
 }
 
-func apiFormat(data string, filename ...string) (string, error) {
-	_, err := parser.ParseContent(data, filename...)
+func apiFormat(data string, skipCheckDeclare bool, filename ...string) (string, error) {
+	var err error
+	if skipCheckDeclare {
+		_, err = parser.ParseContentWithParserSkipCheckTypeDeclaration(data, filename...)
+	} else {
+		_, err = parser.ParseContent(data, filename...)
+	}
 	if err != nil {
 		return "", err
 	}
@@ -124,7 +132,7 @@ func apiFormat(data string, filename ...string) (string, error) {
 			newLineCount++
 		} else {
 			if preLine == rightBrace {
-				builder.WriteString(ctlutil.NL)
+				builder.WriteString(pathx.NL)
 			}
 			newLineCount = 0
 		}
@@ -152,7 +160,7 @@ func apiFormat(data string, filename ...string) (string, error) {
 			}
 		}
 		util.WriteIndent(&builder, tapCount)
-		builder.WriteString(line + ctlutil.NL)
+		builder.WriteString(line + pathx.NL)
 		if strings.HasSuffix(noCommentLine, leftParenthesis) || strings.HasSuffix(noCommentLine, leftBrace) {
 			tapCount++
 		}
@@ -168,10 +176,10 @@ func formatGoTypeDef(line string, scanner *bufio.Scanner, builder *strings.Build
 	if strings.HasPrefix(noCommentLine, "type") && (strings.HasSuffix(noCommentLine, leftParenthesis) ||
 		strings.HasSuffix(noCommentLine, leftBrace)) {
 		var typeBuilder strings.Builder
-		typeBuilder.WriteString(mayInsertStructKeyword(line, &tokenCount) + ctlutil.NL)
+		typeBuilder.WriteString(mayInsertStructKeyword(line, &tokenCount) + pathx.NL)
 		for scanner.Scan() {
 			noCommentLine := util.RemoveComment(scanner.Text())
-			typeBuilder.WriteString(mayInsertStructKeyword(scanner.Text(), &tokenCount) + ctlutil.NL)
+			typeBuilder.WriteString(mayInsertStructKeyword(scanner.Text(), &tokenCount) + pathx.NL)
 			if noCommentLine == rightBrace || noCommentLine == rightParenthesis {
 				tokenCount--
 			}

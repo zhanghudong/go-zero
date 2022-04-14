@@ -6,11 +6,11 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/tal-tech/go-zero/core/mathx"
-	"github.com/tal-tech/go-zero/core/proc"
-	"github.com/tal-tech/go-zero/core/stat"
-	"github.com/tal-tech/go-zero/core/stringx"
-	"github.com/tal-tech/go-zero/core/timex"
+	"github.com/zeromicro/go-zero/core/mathx"
+	"github.com/zeromicro/go-zero/core/proc"
+	"github.com/zeromicro/go-zero/core/stat"
+	"github.com/zeromicro/go-zero/core/stringx"
+	"github.com/zeromicro/go-zero/core/timex"
 )
 
 const (
@@ -171,7 +171,7 @@ func (lt loggedThrottle) allow() (Promise, error) {
 func (lt loggedThrottle) doReq(req func() error, fallback func(err error) error, acceptable Acceptable) error {
 	return lt.logError(lt.internalThrottle.doReq(req, fallback, func(err error) bool {
 		accept := acceptable(err)
-		if !accept {
+		if !accept && err != nil {
 			lt.errWin.add(err.Error())
 		}
 		return accept
