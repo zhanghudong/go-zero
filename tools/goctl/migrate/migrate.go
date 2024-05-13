@@ -8,21 +8,18 @@ import (
 	"go/parser"
 	"go/token"
 	"io/fs"
-	"io/ioutil"
 	"os"
 	"path/filepath"
-	"runtime"
 	"strings"
 	"time"
 
-	"github.com/logrusorgru/aurora"
-	"github.com/urfave/cli"
+	"github.com/gookit/color"
+	"github.com/spf13/cobra"
 	"github.com/zeromicro/go-zero/tools/goctl/util/console"
 	"github.com/zeromicro/go-zero/tools/goctl/util/ctx"
-	"github.com/zeromicro/go-zero/tools/goctl/vars"
 )
 
-const zeromicroVersion = "v1.3.0"
+const defaultMigrateVersion = "v1.3.0"
 
 const (
 	confirmUnknown = iota
@@ -35,28 +32,26 @@ var (
 	builderxConfirm = confirmUnknown
 )
 
-func Migrate(c *cli.Context) error {
-	verbose := c.Bool("verbose")
-	version := c.String("version")
-	if len(version) == 0 {
-		version = zeromicroVersion
+func migrate(_ *cobra.Command, _ []string) error {
+	if len(stringVarVersion) == 0 {
+		stringVarVersion = defaultMigrateVersion
 	}
-	err := editMod(version, verbose)
+	err := editMod(stringVarVersion, boolVarVerbose)
 	if err != nil {
 		return err
 	}
 
-	err = rewriteImport(verbose)
+	err = rewriteImport(boolVarVerbose)
 	if err != nil {
 		return err
 	}
 
-	err = tidy(verbose)
+	err = tidy(boolVarVerbose)
 	if err != nil {
 		return err
 	}
 
-	if verbose {
+	if boolVarVerbose {
 		console.Success("[OK] refactor finish, execute %q on project root to check status.",
 			"go test -race ./...")
 	}
@@ -167,7 +162,7 @@ func writeFile(pkgs []*ast.Package, verbose bool) error {
 				return fmt.Errorf("[rewriteImport] format file %s error: %w", filename, err)
 			}
 
-			err = ioutil.WriteFile(filename, w.Bytes(), os.ModePerm)
+			err = os.WriteFile(filename, w.Bytes(), os.ModePerm)
 			if err != nil {
 				return fmt.Errorf("[rewriteImport] write file %s error: %w", filename, err)
 			}
@@ -248,10 +243,7 @@ It's recommended to use the replacement package, do you want to replace?
 ['Y' for yes, 'N' for no, 'A' for all, 'I' for ignore]: `,
 		deprecated, replacement)
 
-	if runtime.GOOS != vars.OsWindows {
-		msg = aurora.Yellow(msg).String()
-	}
-	fmt.Print(msg)
+	fmt.Print(color.Yellow.Render(msg))
 
 	for {
 		var in string

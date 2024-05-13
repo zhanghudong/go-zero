@@ -12,6 +12,8 @@ import (
 
 const testlog = "Stay hungry, stay foolish."
 
+var testobj = map[string]any{"foo": "bar"}
+
 func TestCollectSysLog(t *testing.T) {
 	CollectSysLog()
 	content := getContent(captureOutput(func() {
@@ -29,24 +31,31 @@ func TestRedirector(t *testing.T) {
 }
 
 func captureOutput(f func()) string {
-	writer := new(mockWriter)
-	infoLog = writer
-	atomic.StoreUint32(&initialized, 1)
+	w := new(mockWriter)
+	old := writer.Swap(w)
+	defer writer.Store(old)
 
 	prevLevel := atomic.LoadUint32(&logLevel)
 	SetLevel(InfoLevel)
 	f()
 	SetLevel(prevLevel)
 
-	return writer.builder.String()
+	return w.String()
 }
 
 func getContent(jsonStr string) string {
-	var entry logEntry
+	var entry map[string]any
 	json.Unmarshal([]byte(jsonStr), &entry)
-	val, ok := entry.Content.(string)
-	if ok {
-		return val
+
+	val, ok := entry[contentKey]
+	if !ok {
+		return ""
 	}
-	return ""
+
+	str, ok := val.(string)
+	if !ok {
+		return ""
+	}
+
+	return str
 }

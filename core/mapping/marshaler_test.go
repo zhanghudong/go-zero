@@ -27,6 +27,27 @@ func TestMarshal(t *testing.T) {
 	assert.True(t, m[emptyTag]["Anonymous"].(bool))
 }
 
+func TestMarshal_Ptr(t *testing.T) {
+	v := &struct {
+		Name      string `path:"name"`
+		Address   string `json:"address,options=[beijing,shanghai]"`
+		Age       int    `json:"age"`
+		Anonymous bool
+	}{
+		Name:      "kevin",
+		Address:   "shanghai",
+		Age:       20,
+		Anonymous: true,
+	}
+
+	m, err := Marshal(v)
+	assert.Nil(t, err)
+	assert.Equal(t, "kevin", m["path"]["name"])
+	assert.Equal(t, "shanghai", m["json"]["address"])
+	assert.Equal(t, 20, m["json"]["age"].(int))
+	assert.True(t, m[emptyTag]["Anonymous"].(bool))
+}
+
 func TestMarshal_OptionalPtr(t *testing.T) {
 	var val = 1
 	v := struct {
@@ -63,6 +84,26 @@ func TestMarshal_BadOptions(t *testing.T) {
 func TestMarshal_NotInOptions(t *testing.T) {
 	v := struct {
 		Name string `json:"name,options=[a,b]"`
+	}{
+		Name: "kevin",
+	}
+
+	_, err := Marshal(v)
+	assert.NotNil(t, err)
+}
+
+func TestMarshal_NotInOptionsOptional(t *testing.T) {
+	v := struct {
+		Name string `json:"name,options=[a,b],optional"`
+	}{}
+
+	_, err := Marshal(v)
+	assert.Nil(t, err)
+}
+
+func TestMarshal_NotInOptionsOptionalWrongValue(t *testing.T) {
+	v := struct {
+		Name string `json:"name,options=[a,b],optional"`
 	}{
 		Name: "kevin",
 	}
@@ -186,7 +227,7 @@ func TestMarshal_Range(t *testing.T) {
 }
 
 func TestMarshal_RangeOut(t *testing.T) {
-	tests := []interface{}{
+	tests := []any{
 		struct {
 			Int int `json:"int,range=[1:3]"`
 		}{
@@ -217,6 +258,78 @@ func TestMarshal_RangeOut(t *testing.T) {
 	for _, test := range tests {
 		_, err := Marshal(test)
 		assert.NotNil(t, err)
+	}
+}
+
+func TestMarshal_RangeIllegal(t *testing.T) {
+	tests := []any{
+		struct {
+			Int int `json:"int,range=[3:1]"`
+		}{
+			Int: 2,
+		},
+		struct {
+			Int int `json:"int,range=(3:1]"`
+		}{
+			Int: 2,
+		},
+	}
+
+	for _, test := range tests {
+		_, err := Marshal(test)
+		assert.Equal(t, err, errNumberRange)
+	}
+}
+
+func TestMarshal_RangeLeftEqualsToRight(t *testing.T) {
+	tests := []struct {
+		name  string
+		value any
+		err   error
+	}{
+		{
+			name: "left inclusive, right inclusive",
+			value: struct {
+				Int int `json:"int,range=[2:2]"`
+			}{
+				Int: 2,
+			},
+		},
+		{
+			name: "left inclusive, right exclusive",
+			value: struct {
+				Int int `json:"int,range=[2:2)"`
+			}{
+				Int: 2,
+			},
+			err: errNumberRange,
+		},
+		{
+			name: "left exclusive, right inclusive",
+			value: struct {
+				Int int `json:"int,range=(2:2]"`
+			}{
+				Int: 2,
+			},
+			err: errNumberRange,
+		},
+		{
+			name: "left exclusive, right exclusive",
+			value: struct {
+				Int int `json:"int,range=(2:2)"`
+			}{
+				Int: 2,
+			},
+			err: errNumberRange,
+		},
+	}
+
+	for _, test := range tests {
+		test := test
+		t.Run(test.name, func(t *testing.T) {
+			_, err := Marshal(test.value)
+			assert.Equal(t, test.err, err)
+		})
 	}
 }
 

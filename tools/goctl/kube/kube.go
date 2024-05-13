@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"text/template"
 
-	"github.com/logrusorgru/aurora"
-	"github.com/urfave/cli"
+	"github.com/gookit/color"
+	"github.com/spf13/cobra"
 	"github.com/zeromicro/go-zero/tools/goctl/util"
 	"github.com/zeromicro/go-zero/tools/goctl/util/pathx"
 )
@@ -29,30 +29,32 @@ var (
 
 // Deployment describes the k8s deployment yaml
 type Deployment struct {
-	Name           string
-	Namespace      string
-	Image          string
-	Secret         string
-	Replicas       int
-	Revisions      int
-	Port           int
-	NodePort       int
-	UseNodePort    bool
-	RequestCpu     int
-	RequestMem     int
-	LimitCpu       int
-	LimitMem       int
-	MinReplicas    int
-	MaxReplicas    int
-	ServiceAccount string
+	Name            string
+	Namespace       string
+	Image           string
+	Secret          string
+	Replicas        int
+	Revisions       int
+	Port            int
+	TargetPort      int
+	NodePort        int
+	UseNodePort     bool
+	RequestCpu      int
+	RequestMem      int
+	LimitCpu        int
+	LimitMem        int
+	MinReplicas     int
+	MaxReplicas     int
+	ServiceAccount  string
+	ImagePullPolicy string
 }
 
-// DeploymentCommand is used to generate the kubernetes deployment yaml files.
-func DeploymentCommand(c *cli.Context) error {
-	nodePort := c.Int("nodePort")
-	home := c.String("home")
-	remote := c.String("remote")
-	branch := c.String("branch")
+// deploymentCommand is used to generate the kubernetes deployment yaml files.
+func deploymentCommand(_ *cobra.Command, _ []string) error {
+	nodePort := varIntNodePort
+	home := varStringHome
+	remote := varStringRemote
+	branch := varStringBranch
 	if len(remote) > 0 {
 		repo, _ := util.CloneIntoGitHome(remote, branch)
 		if len(repo) > 0 {
@@ -74,36 +76,42 @@ func DeploymentCommand(c *cli.Context) error {
 		return err
 	}
 
-	out, err := pathx.CreateIfNotExist(c.String("o"))
+	out, err := pathx.CreateIfNotExist(varStringO)
 	if err != nil {
 		return err
 	}
 	defer out.Close()
 
+	if varIntTargetPort == 0 {
+		varIntTargetPort = varIntPort
+	}
+
 	t := template.Must(template.New("deploymentTemplate").Parse(text))
 	err = t.Execute(out, Deployment{
-		Name:           c.String("name"),
-		Namespace:      c.String("namespace"),
-		Image:          c.String("image"),
-		Secret:         c.String("secret"),
-		Replicas:       c.Int("replicas"),
-		Revisions:      c.Int("revisions"),
-		Port:           c.Int("port"),
-		NodePort:       nodePort,
-		UseNodePort:    nodePort > 0,
-		RequestCpu:     c.Int("requestCpu"),
-		RequestMem:     c.Int("requestMem"),
-		LimitCpu:       c.Int("limitCpu"),
-		LimitMem:       c.Int("limitMem"),
-		MinReplicas:    c.Int("minReplicas"),
-		MaxReplicas:    c.Int("maxReplicas"),
-		ServiceAccount: c.String("serviceAccount"),
+		Name:            varStringName,
+		Namespace:       varStringNamespace,
+		Image:           varStringImage,
+		Secret:          varStringSecret,
+		Replicas:        varIntReplicas,
+		Revisions:       varIntRevisions,
+		Port:            varIntPort,
+		TargetPort:      varIntTargetPort,
+		NodePort:        nodePort,
+		UseNodePort:     nodePort > 0,
+		RequestCpu:      varIntRequestCpu,
+		RequestMem:      varIntRequestMem,
+		LimitCpu:        varIntLimitCpu,
+		LimitMem:        varIntLimitMem,
+		MinReplicas:     varIntMinReplicas,
+		MaxReplicas:     varIntMaxReplicas,
+		ServiceAccount:  varStringServiceAccount,
+		ImagePullPolicy: varStringImagePullPolicy,
 	})
 	if err != nil {
 		return err
 	}
 
-	fmt.Println(aurora.Green("Done."))
+	fmt.Println(color.Green.Render("Done."))
 	return nil
 }
 
@@ -118,7 +126,7 @@ func Clean() error {
 }
 
 // GenTemplates generates the deployment template files.
-func GenTemplates(_ *cli.Context) error {
+func GenTemplates() error {
 	return pathx.InitTemplates(category, map[string]string{
 		deployTemplateFile: deploymentTemplate,
 		jobTemplateFile:    jobTemplate,

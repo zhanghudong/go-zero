@@ -12,11 +12,17 @@ const (
 )
 
 // Marshal marshals the given val and returns the map that contains the fields.
-// optional=another is not implemented, and it's hard to implement and not common used.
-func Marshal(val interface{}) (map[string]map[string]interface{}, error) {
-	ret := make(map[string]map[string]interface{})
+// optional=another is not implemented, and it's hard to implement and not commonly used.
+func Marshal(val any) (map[string]map[string]any, error) {
+	ret := make(map[string]map[string]any)
 	tp := reflect.TypeOf(val)
+	if tp.Kind() == reflect.Ptr {
+		tp = tp.Elem()
+	}
 	rv := reflect.ValueOf(val)
+	if rv.Kind() == reflect.Ptr {
+		rv = rv.Elem()
+	}
 
 	for i := 0; i < tp.NumField(); i++ {
 		field := tp.Field(i)
@@ -39,7 +45,7 @@ func getTag(field reflect.StructField) (string, bool) {
 }
 
 func processMember(field reflect.StructField, value reflect.Value,
-	collector map[string]map[string]interface{}) error {
+	collector map[string]map[string]any) error {
 	var key string
 	var opt *fieldOptions
 	var err error
@@ -67,7 +73,7 @@ func processMember(field reflect.StructField, value reflect.Value,
 	if ok {
 		m[key] = val
 	} else {
-		m = map[string]interface{}{
+		m = map[string]any{
 			key: val,
 		}
 	}
@@ -84,6 +90,10 @@ func validate(field reflect.StructField, value reflect.Value, opt *fieldOptions)
 	}
 
 	if opt == nil {
+		return nil
+	}
+
+	if opt.Optional && value.IsZero() {
 		return nil
 	}
 

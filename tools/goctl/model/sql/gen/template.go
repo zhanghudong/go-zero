@@ -3,13 +3,13 @@ package gen
 import (
 	"fmt"
 
-	"github.com/urfave/cli"
 	"github.com/zeromicro/go-zero/tools/goctl/model/sql/template"
 	"github.com/zeromicro/go-zero/tools/goctl/util/pathx"
 )
 
 const (
 	category                              = "model"
+	customizedTemplateFile                = "customized.tpl"
 	deleteTemplateFile                    = "delete.tpl"
 	deleteMethodTemplateFile              = "interface-delete.tpl"
 	fieldTemplateFile                     = "field.tpl"
@@ -35,6 +35,7 @@ const (
 )
 
 var templates = map[string]string{
+	customizedTemplateFile:                template.Customized,
 	deleteTemplateFile:                    template.Delete,
 	deleteMethodTemplateFile:              template.DeleteMethod,
 	fieldTemplateFile:                     template.Field,
@@ -70,7 +71,7 @@ func Clean() error {
 }
 
 // GenTemplates creates template files if not exists
-func GenTemplates(_ *cli.Context) error {
+func GenTemplates() error {
 	return pathx.InitTemplates(category, templates)
 }
 

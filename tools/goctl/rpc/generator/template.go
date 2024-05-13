@@ -3,7 +3,6 @@ package generator
 import (
 	"fmt"
 
-	"github.com/urfave/cli"
 	"github.com/zeromicro/go-zero/tools/goctl/util/pathx"
 )
 
@@ -24,23 +23,21 @@ const (
 )
 
 var templates = map[string]string{
-	callTemplateFile:                  callTemplateText,
-	callInterfaceFunctionTemplateFile: callInterfaceFunctionTemplate,
-	callFunctionTemplateFile:          callFunctionTemplate,
-	configTemplateFileFile:            configTemplate,
-	etcTemplateFileFile:               etcTemplate,
-	logicTemplateFileFile:             logicTemplate,
-	logicFuncTemplateFileFile:         logicFunctionTemplate,
-	mainTemplateFile:                  mainTemplate,
-	serverTemplateFile:                serverTemplate,
-	serverFuncTemplateFile:            functionTemplate,
-	svcTemplateFile:                   svcTemplate,
-	rpcTemplateFile:                   rpcTemplateText,
+	callTemplateFile:          callTemplateText,
+	configTemplateFileFile:    configTemplate,
+	etcTemplateFileFile:       etcTemplate,
+	logicTemplateFileFile:     logicTemplate,
+	logicFuncTemplateFileFile: logicFunctionTemplate,
+	mainTemplateFile:          mainTemplate,
+	serverTemplateFile:        serverTemplate,
+	serverFuncTemplateFile:    functionTemplate,
+	svcTemplateFile:           svcTemplate,
+	rpcTemplateFile:           rpcTemplateText,
 }
 
 // GenTemplates is the entry for command goctl template,
 // it will create the specified category
-func GenTemplates(_ *cli.Context) error {
+func GenTemplates() error {
 	return pathx.InitTemplates(category, templates)
 }
 

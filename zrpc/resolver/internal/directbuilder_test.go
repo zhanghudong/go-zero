@@ -1,7 +1,9 @@
 package internal
 
 import (
+	"errors"
 	"fmt"
+	"net/url"
 	"strconv"
 	"strings"
 	"testing"
@@ -31,11 +33,20 @@ func TestDirectBuilder_Build(t *testing.T) {
 			}
 			var b directBuilder
 			cc := new(mockedClientConn)
-			_, err := b.Build(resolver.Target{
-				Scheme:   DirectScheme,
-				Endpoint: strings.Join(servers, ","),
-			}, cc, resolver.BuildOptions{})
+			target := fmt.Sprintf("%s:///%s", DirectScheme, strings.Join(servers, ","))
+			uri, err := url.Parse(target)
 			assert.Nil(t, err)
+			cc.err = errors.New("foo")
+			_, err = b.Build(resolver.Target{
+				URL: *uri,
+			}, cc, resolver.BuildOptions{})
+			assert.NotNil(t, err)
+			cc.err = nil
+			_, err = b.Build(resolver.Target{
+				URL: *uri,
+			}, cc, resolver.BuildOptions{})
+			assert.NoError(t, err)
+
 			size := mathx.MinInt(test, subsetSize)
 			assert.Equal(t, size, len(cc.state.Addresses))
 			m := make(map[string]lang.PlaceholderType)
