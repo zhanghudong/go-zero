@@ -52,6 +52,12 @@ func (l *richLogger) Debugf(format string, v ...any) {
 	}
 }
 
+func (l *richLogger) Debugfn(fn func() any) {
+	if shallLog(DebugLevel) {
+		l.debug(fn())
+	}
+}
+
 func (l *richLogger) Debugv(v any) {
 	if shallLog(DebugLevel) {
 		l.debug(v)
@@ -73,6 +79,12 @@ func (l *richLogger) Error(v ...any) {
 func (l *richLogger) Errorf(format string, v ...any) {
 	if shallLog(ErrorLevel) {
 		l.err(fmt.Sprintf(format, v...))
+	}
+}
+
+func (l *richLogger) Errorfn(fn func() any) {
+	if shallLog(ErrorLevel) {
+		l.err(fn())
 	}
 }
 
@@ -100,6 +112,12 @@ func (l *richLogger) Infof(format string, v ...any) {
 	}
 }
 
+func (l *richLogger) Infofn(fn func() any) {
+	if shallLog(InfoLevel) {
+		l.info(fn())
+	}
+}
+
 func (l *richLogger) Infov(v any) {
 	if shallLog(InfoLevel) {
 		l.info(v)
@@ -124,6 +142,12 @@ func (l *richLogger) Slowf(format string, v ...any) {
 	}
 }
 
+func (l *richLogger) Slowfn(fn func() any) {
+	if shallLog(ErrorLevel) {
+		l.slow(fn())
+	}
+}
+
 func (l *richLogger) Slowv(v any) {
 	if shallLog(ErrorLevel) {
 		l.slow(v)
@@ -141,28 +165,50 @@ func (l *richLogger) WithCallerSkip(skip int) Logger {
 		return l
 	}
 
-	l.callerSkip = skip
-	return l
+	return &richLogger{
+		ctx:        l.ctx,
+		callerSkip: skip,
+		fields:     l.fields,
+	}
 }
 
 func (l *richLogger) WithContext(ctx context.Context) Logger {
-	l.ctx = ctx
-	return l
+	return &richLogger{
+		ctx:        ctx,
+		callerSkip: l.callerSkip,
+		fields:     l.fields,
+	}
 }
 
 func (l *richLogger) WithDuration(duration time.Duration) Logger {
-	l.fields = append(l.fields, Field(durationKey, timex.ReprOfDuration(duration)))
-	return l
+	fields := append(l.fields, Field(durationKey, timex.ReprOfDuration(duration)))
+
+	return &richLogger{
+		ctx:        l.ctx,
+		callerSkip: l.callerSkip,
+		fields:     fields,
+	}
 }
 
 func (l *richLogger) WithFields(fields ...LogField) Logger {
-	l.fields = append(l.fields, fields...)
-	return l
+	if len(fields) == 0 {
+		return l
+	}
+
+	f := append(l.fields, fields...)
+
+	return &richLogger{
+		ctx:        l.ctx,
+		callerSkip: l.callerSkip,
+		fields:     f,
+	}
 }
 
 func (l *richLogger) buildFields(fields ...LogField) []LogField {
 	fields = append(l.fields, fields...)
+	// caller field should always appear together with global fields
 	fields = append(fields, Field(callerKey, getCaller(callerDepth+l.callerSkip)))
+	fields = mergeGlobalFields(fields)
 
 	if l.ctx == nil {
 		return fields
